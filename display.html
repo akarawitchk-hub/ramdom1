@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ผลลัพธ์การสุ่ม</title>
+<style>
+body { 
+    font-family:'Segoe UI',sans-serif; 
+    background:#fffaf5; 
+    margin:0; 
+    padding:20px;
+    display:flex;
+    justify-content:space-around;
+    align-items:flex-start;
+}
+.column {
+    flex:1;
+    max-width:45%;
+    background:white;
+    border:2px solid #6f4e37;
+    border-radius:12px;
+    padding:20px;
+    box-sizing:border-box;
+}
+h2 { text-align:center; color:#4e342e; }
+.result-item {
+    background:#f9f9f9;
+    border-left:6px solid #6f4e37;
+    padding:10px;
+    margin:8px 0;
+    border-radius:8px;
+    font-size:18px;
+}
+.summary {
+    text-align:center;
+    font-weight:bold;
+    margin-bottom:10px;
+    color:#3e2723;
+}
+</style>
+</head>
+<body>
+<div class="column">
+    <h2>ฝั่งซ้าย (สุ่มล่าสุด)</h2>
+    <div id="displayLeft"></div>
+</div>
+<div class="column">
+    <h2>ฝั่งขวา (เรียงลำดับที่ออกจริง)</h2>
+    <div class="summary" id="summaryRight"></div>
+    <div id="displayRight"></div>
+</div>
+
+<script>
+function renderResult(){
+    // ดึงข้อมูลจาก window.opener ถ้ามี หรือจาก localStorage
+    let resultLeft = [];
+    let usedLeft = [];
+    let usedRight = [];
+    if (window.opener && !window.opener.closed) {
+        resultLeft = window.opener.randomResultLeft || [];
+        usedLeft = window.opener.usedListLeft || [];
+        usedRight = window.opener.usedListRight || [];
+    }
+    if (!Array.isArray(resultLeft) || resultLeft.length === 0) {
+        resultLeft = JSON.parse(localStorage.getItem("randomResultLeft")) || [];
+    }
+    if (!Array.isArray(usedLeft) || usedLeft.length === 0) {
+        usedLeft = JSON.parse(localStorage.getItem("usedResultLeft")) || [];
+    }
+    if (!Array.isArray(usedRight) || usedRight.length === 0) {
+        usedRight = JSON.parse(localStorage.getItem("usedResultRight")) || [];
+    }
+
+    // ฝั่งซ้าย: แสดงผลสุ่มล่าสุด (ไม่เรียงลำดับ)
+    let htmlLeft = resultLeft.map(item => 
+        `<div class="result-item">คนที่ ${item.index} (${item.name})</div>`
+    ).join("");
+    document.getElementById("displayLeft").innerHTML = htmlLeft || "ยังไม่มีผลลัพธ์";
+
+    // ฝั่งขวา: แสดงลำดับที่ออกจริงจากฝั่งขวาเท่านั้น
+    let htmlRight = usedRight.map((item, idx) => 
+        `<div class="result-item">ลำดับที่ ${idx+1} : คนที่ ${item.index} (${item.name})</div>`
+    ).join("");
+    document.getElementById("displayRight").innerHTML = htmlRight || "ยังไม่มีรายชื่อที่ออกไปแล้ว";
+
+    // แสดงจำนวนทั้งหมดที่ออกไปแล้วในฝั่งขวา
+    document.getElementById("summaryRight").innerText = 
+        usedRight.length > 0 ? `ออกไปแล้วทั้งหมด ${usedRight.length} คน` : "";
+}
+
+// เรียกฟังก์ชันเมื่อโหลดหน้า
+renderResult();
+
+// อัปเดตผลลัพธ์แบบเรียลไทม์ทุก 1 วินาที
+setInterval(renderResult, 1000);
+</script>
+</body>
+</html>

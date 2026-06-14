@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สุ่มรายชื่อ</title>
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f5efe6;
+    margin: 0;
+    padding: 25px;
+}
+h2 { text-align: center; color: #5d4037; }
+
+/* ปุ่มแถวบน */
+.top-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 20px 0;
+}
+.top-buttons button {
+    background: #6f4e37;
+    color: white;
+    border: none;
+    padding: 12px 30px;   /* ปรับให้กว้างขึ้น */
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+.top-buttons button:hover { background: #5d4037; }
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 30px;
+}
+.column {
+    flex: 1;
+    max-width: 50%;
+    background: #fffaf5;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #bcaaa4;
+    box-sizing: border-box;
+}
+textarea, input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border: 2px solid #bcaaa4;
+    border-radius: 8px;
+    font-size: 14px;
+}
+button.small {
+    background: #6f4e37;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 8px;
+}
+button.small:hover { background: #5d4037; }
+.result-item {
+    background: white;
+    border-left: 6px solid #6f4e37;
+    padding: 8px;
+    margin-top: 6px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>
+</head>
+<body>
+
+<h2>สุ่มรายชื่อ</h2>
+
+<!-- ปุ่ม 3 อันอยู่ตรงกลางด้านบน -->
+<div class="top-buttons">
+    <button onclick="randomBoth()">🎲 สุ่มออกพร้อมกัน</button>
+    <button onclick="openDisplay()">📊 ดูผลลัพธ์</button>
+    <button onclick="resetUsed()">🔄 รีเซ็ต</button>
+</div>
+
+<div class="container">
+    <!-- ฝั่งซ้าย -->
+    <div class="column left">
+        <h3>รายชื่อฝั่งซ้าย</h3>
+        <textarea id="allDataLeft" rows="10"></textarea>
+        <h3>จำนวนที่ต้องการสุ่ม</h3>
+        <input type="number" id="countLeft" value="1" min="1">
+        <button class="small" onclick="randomData()">สุ่มฝั่งซ้าย</button>
+        <div id="resultLeft"></div>
+        <h3>ออกไปแล้ว (ซ้าย)</h3>
+        <div id="usedResultLeft"></div>
+    </div>
+    <div class="column right">
+        <h3>ฝั่งขวา (เรียงลำดับที่ออกจริง)</h3>
+        <div id="usedResultRight"></div>
+    </div>
+</div>
+
+<script>
+let usedListLeft = JSON.parse(localStorage.getItem("usedResultLeft")) || [];
+let usedListRight = JSON.parse(localStorage.getItem("usedResultRight")) || [];
+window.usedListLeft = usedListLeft;
+window.usedListRight = usedListRight;
+
+// ฟังก์ชันบังคับให้บรรทัดแรกต้องเป็น "1. " เสมอ และกด Enter จะขึ้นเลขใหม่
+function enforceFirstLine(textarea) {
+
+    function renumber() {
+        let lines = textarea.value
+            .split("\n")
+            .map(line => line.replace(/^\d+\.\s*/, ""));
+
+        textarea.value = lines
+            .map((line, i) => `${i + 1}. ${line}`)
+            .join("\n");
+    }
+
+    textarea.addEventListener("input", renumber);
+
+    textarea.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+
+            let start = this.selectionStart;
+            let end = this.selectionEnd;
+
+            this.value =
+                this.value.substring(0, start) +
+                "\n" +
+                this.value.substring(end);
+
+            this.selectionStart = this.selectionEnd = start + 1;
+
+            renumber();
+        }
+    });
+}
+
+// เริ่มต้นให้มีเลข 1. อยู่แล้ว
+document.getElementById("allDataLeft").value = "1. ";
+
+// เรียกใช้ฟังก์ชันกับช่องกรอกข้อมูล
+enforceFirstLine(document.getElementById("allDataLeft"));
+
+renderUsedList('left');
+renderUsedList('right');
+
+function renderUsedList(side) {
+    let usedList = side === 'left' ? usedListLeft : usedListRight;
+    let usedDiv = side === 'left' ? "usedResultLeft" : "usedResultRight";
+
+    document.getElementById(usedDiv).innerHTML = usedList.map((item, idx) =>
+        `<div class="result-item">${side === 'right' ? `ลำดับที่ ${idx+1} : คนที่ ${item.index} (${item.name})` : `${item.index}. ${item.name}`}
+         <button class="small" onclick="removeName('${side}', ${idx})">ลบ</button></div>`
+    ).join("");
+}
+
+function randomData() {
+    let allData = document.getElementById("allDataLeft").value
+        .split("\n").map(x => x.trim()).filter(x => x)
+        .map(line => {
+            let match = line.match(/^(\d+)\.\s*(.*)$/);
+            return match ? { index: parseInt(match[1]), name: match[2] } : { index: "-", name: line };
+        });
+
+    let count = parseInt(document.getElementById("countLeft").value);
+
+    let pool = allData.filter(item =>
+        item.name !== "" &&
+        !usedListLeft.some(x => x.name === item.name)
+    );
+
+    let result = [];
+    while (result.length < count && pool.length > 0) {
+        let rand = Math.floor(Math.random() * pool.length);
+        result.push(pool.splice(rand, 1)[0]);
+    }
+
+    result.forEach(item => {
+        if (!usedListLeft.some(x => x.name === item.name)) {
+            usedListLeft.push(item);
+        }
+        if (!usedListRight.some(x => x.name === item.name)) {
+            usedListRight.push(item);
+        }
+    });
+
+    document.getElementById("resultLeft").innerHTML =
+        `<h3>ผลลัพธ์ฝั่งซ้าย</h3>` +
+        result.map(item => `<div class="result-item">${item.index}. ${item.name}</div>`).join("");
+
+    renderUsedList('left');
+    renderUsedList('right');
+
+    window.randomResultLeft = result;
+    window.usedListLeft = usedListLeft;
+    window.usedListRight = usedListRight;
+    localStorage.setItem("randomResultLeft", JSON.stringify(result));
+    localStorage.setItem("usedResultLeft", JSON.stringify(usedListLeft));
+    localStorage.setItem("usedResultRight", JSON.stringify(usedListRight));
+}
+
+// ฟังก์ชันสุ่มออกพร้อมกัน
+function randomBoth() {
+    // รวมรายชื่อทั้งหมดจากฝั่งซ้ายเพียงฝั่งเดียว
+    let allDataLeft = document.getElementById("allDataLeft").value
+        .split("\n").map(x => x.trim()).filter(x => x)
+        .map(line => {
+            let match = line.match(/^(\d+)\.\s*(.*)$/);
+            return match ? { index: parseInt(match[1]), name: match[2] } : { index: "-", name: line };
+        });
+
+    // รวมทั้งหมด
+    let allData = [...allDataLeft];
+
+    // กรองเฉพาะที่ยังไม่ออก
+    let usedAll = [...usedListLeft, ...usedListRight];
+    let pool = allData.filter(item =>
+        item.name !== "" &&
+        !usedAll.some(x => x.name === item.name)
+    );
+
+    // สุ่มเรียงทั้งหมดที่เหลือ (ฝั่งซ้าย: ไม่เรียง, ฝั่งขวา: เรียงลำดับแน่นอน)
+    let result = [];
+    while (pool.length > 0) {
+        let rand = Math.floor(Math.random() * pool.length);
+        result.push(pool.splice(rand, 1)[0]);
+    }
+
+    // ฝั่งซ้าย → แสดงผลตามที่สุ่มได้จริง (ไม่เรียง)
+    document.getElementById("resultLeft").innerHTML =
+        `<h3>ผลลัพธ์สุ่มล่าสุด</h3>` +
+        result.map(item => `<div class="result-item">คนที่ ${item.index} (${item.name})</div>`).join("");
+
+    // ฝั่งขวา → เก็บรายการที่ออกจริง และฝั่งซ้ายด้วย
+    result.forEach(item => {
+        if (!usedListLeft.some(x => x.name === item.name)) {
+            usedListLeft.push(item);
+        }
+        if (!usedListRight.some(x => x.name === item.name)) {
+            usedListRight.push(item);
+        }
+    });
+
+    renderUsedList('left');
+    renderUsedList('right');
+
+    window.randomResultLeft = result;
+    window.usedListLeft = usedListLeft;
+    window.usedListRight = usedListRight;
+    // บันทึกลง localStorage
+    localStorage.setItem("randomResultLeft", JSON.stringify(result));
+    localStorage.setItem("usedResultLeft", JSON.stringify(usedListLeft));
+    localStorage.setItem("usedResultRight", JSON.stringify(usedListRight));
+}
+
+
+// ฟังก์ชันลบรายชื่อทีละคน
+function removeName(side, idx) {
+    if (side === 'left') {
+        usedListLeft.splice(idx, 1);
+        localStorage.setItem("usedResultLeft", JSON.stringify(usedListLeft));
+        renderUsedList('left');
+    } else {
+        usedListRight.splice(idx, 1);
+        localStorage.setItem("usedResultRight", JSON.stringify(usedListRight));
+        renderUsedList('right');
+    }
+}
+
+function openDisplay() {
+    window.open("display.html", "_blank", "width=1000,height=600");
+}
+
+
+function resetUsed() {
+    if (!confirm("ต้องการรีเซ็ตรายชื่อที่ออกไปแล้วทั้งหมดหรือไม่?")) return;
+    usedListLeft = [];
+    usedListRight = [];
+    document.getElementById("usedResultLeft").innerHTML = "";
+    document.getElementById("usedResultRight").innerHTML = "";
+    document.getElementById("resultLeft").innerHTML = "";
+    document.getElementById("allDataLeft").value = "1. ";
+    localStorage.removeItem("usedResultLeft");
+    localStorage.removeItem("usedResultRight");
+    localStorage.removeItem("randomResultLeft");
+    localStorage.removeItem("randomResultRight");
+}
+</script>
+</body>
+</html>
